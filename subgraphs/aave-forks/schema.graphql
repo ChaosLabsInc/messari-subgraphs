@@ -1,5 +1,5 @@
 # Subgraph Schema: Lending Protocol (Extended)
-# Version: 2.0.1
+# Version: 2.0.2
 # See https://github.com/messari/subgraphs/blob/master/docs/SCHEMA.md for details
 
 enum Network {
@@ -589,6 +589,12 @@ type Market @entity @regularPolling {
 
   " Sum of all historical liquidations in USD "
   cumulativeLiquidateUSD: BigDecimal!
+
+  " Index used by the protocol to calculate interest generated on the supply token (ie, liquidityIndex in Aave)"
+  supplyIndex: BigInt
+
+  " Index used by the protocol to calculate the interest paid on the borrowed token (ie, variableBorrowIndex in Aave))"
+  borrowIndex: BigInt
 
   ##### Token Balances #####
 

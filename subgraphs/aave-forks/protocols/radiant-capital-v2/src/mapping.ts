@@ -177,7 +177,8 @@ export function handleReserveDataUpdated(event: ReserveDataUpdated): void {
     event.params.stableBorrowRate,
     protocolData,
     event.params.reserve,
-    assetPriceUSD
+    assetPriceUSD,
+    event.params.variableBorrowIndex
   );
 }
 

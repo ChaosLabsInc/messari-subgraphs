@@ -322,7 +322,8 @@ export function _handleReserveDataUpdated(
   stableBorrowRate: BigInt,
   protocolData: ProtocolData,
   marketId: Address,
-  assetPriceUSD: BigDecimal
+  assetPriceUSD: BigDecimal,
+  variableBorrowIndex: BigInt | null = null
 ): void {
   const market = Market.load(marketId.toHexString());
   if (!market) {
@@ -411,6 +412,8 @@ export function _handleReserveDataUpdated(
     .minus(market._liquidityIndex)
     .toBigDecimal()
     .div(exponentToBigDecimal(RAY_OFFSET));
+  market.supplyIndex = liquidityIndex;
+  if (variableBorrowIndex) market.borrowIndex = variableBorrowIndex;
   market._liquidityIndex = liquidityIndex; // must update to current liquidity index
   const newRevenueBD = tryScaledSupply.value
     .toBigDecimal()
