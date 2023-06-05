@@ -51,6 +51,26 @@ import { fetchTokenDecimals, fetchTokenName, fetchTokenSymbol } from "./token";
 import { IPriceOracleGetter } from "../generated/LendingPool/IPriceOracleGetter";
 import { AToken } from "../generated/LendingPool/AToken";
 import { Versions } from "./versions";
+import { StableDebtToken } from "../generated/LendingPool/StableDebtToken";
+
+//////////////////////////
+///// Helper Classes /////
+//////////////////////////
+
+export class PrincipalBalances {
+  constructor(
+    public readonly supplyPrincipal: ethereum.CallResult<BigInt> | null,
+    public readonly variableDebtPrincipal: ethereum.CallResult<BigInt> | null,
+    public readonly stableDebtPrincipal: ethereum.CallResult<BigInt> | null
+  ) {}
+}
+
+export class BorrowBalances {
+  constructor(
+    public readonly balance: ethereum.CallResult<BigInt>,
+    public readonly borrowPrincipalBalances: PrincipalBalances
+  ) {}
+}
 
 ////////////////////////
 ///// Initializers /////
@@ -556,6 +576,7 @@ export function addPosition(
   market: Market,
   account: Account,
   balanceResult: ethereum.CallResult<BigInt>,
+  principalBalances: PrincipalBalances,
   side: string,
   eventType: i32,
   event: ethereum.Event
@@ -584,12 +605,17 @@ export function addPosition(
     position.hashOpened = event.transaction.hash.toHexString();
     position.blockNumberOpened = event.block.number;
     position.timestampOpened = event.block.timestamp;
+    position.blockNumberUpdated = event.block.number;
+    position.timestampUpdated = event.block.timestamp;
     position.side = side;
     if (side == PositionSide.LENDER) {
       position.isCollateral =
         account._enabledCollaterals.indexOf(market.id) >= 0;
     }
     position.balance = BIGINT_ZERO;
+    position.supplyPrincipal = BIGINT_ZERO;
+    position.variableDebtPrincipal = BIGINT_ZERO;
+    position.stableDebtPrincipal = BIGINT_ZERO;
     position.depositCount = 0;
     position.withdrawCount = 0;
     position.borrowCount = 0;
@@ -598,6 +624,9 @@ export function addPosition(
     position.save();
   }
   position = position!;
+  position.blockNumberUpdated = event.block.number;
+  position.timestampUpdated = event.block.timestamp;
+
   if (balanceResult.reverted) {
     log.warning("[addPosition] Fetch balance of {} from {} reverted", [
       account.id,
@@ -606,6 +635,43 @@ export function addPosition(
   } else {
     position.balance = balanceResult.value;
   }
+
+  if (
+    principalBalances.supplyPrincipal &&
+    principalBalances.supplyPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch supply principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.supplyPrincipal) {
+    position.supplyPrincipal = principalBalances.supplyPrincipal!.value;
+  }
+
+  if (
+    principalBalances.variableDebtPrincipal &&
+    principalBalances.variableDebtPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch variable debt principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.variableDebtPrincipal) {
+    position.supplyPrincipal = principalBalances.variableDebtPrincipal!.value;
+  }
+
+  if (
+    principalBalances.stableDebtPrincipal &&
+    principalBalances.stableDebtPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch stable debt principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.stableDebtPrincipal) {
+    position.supplyPrincipal = principalBalances.stableDebtPrincipal!.value;
+  }
+
   if (eventType == EventType.DEPOSIT) {
     position.depositCount += 1;
   } else if (eventType == EventType.BORROW) {
@@ -674,6 +740,7 @@ export function subtractPosition(
   market: Market,
   account: Account,
   balanceResult: ethereum.CallResult<BigInt>,
+  principalBalances: PrincipalBalances,
   side: string,
   eventType: i32,
   event: ethereum.Event
@@ -699,6 +766,9 @@ export function subtractPosition(
     return null;
   }
 
+  position.blockNumberUpdated = event.block.number;
+  position.timestampUpdated = event.block.timestamp;
+
   if (balanceResult.reverted) {
     log.warning("[subtractPosition] Fetch balance of {} from {} reverted", [
       account.id,
@@ -707,6 +777,42 @@ export function subtractPosition(
   } else {
     position.balance = balanceResult.value;
   }
+  if (
+    principalBalances.supplyPrincipal &&
+    principalBalances.supplyPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch supply principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.supplyPrincipal) {
+    position.supplyPrincipal = principalBalances.supplyPrincipal!.value;
+  }
+
+  if (
+    principalBalances.variableDebtPrincipal &&
+    principalBalances.variableDebtPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch variable debt principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.variableDebtPrincipal) {
+    position.supplyPrincipal = principalBalances.variableDebtPrincipal!.value;
+  }
+
+  if (
+    principalBalances.stableDebtPrincipal &&
+    principalBalances.stableDebtPrincipal!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch stable debt principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (principalBalances.stableDebtPrincipal) {
+    position.supplyPrincipal = principalBalances.stableDebtPrincipal!.value;
+  }
+
   if (eventType == EventType.WITHDRAW) {
     position.withdrawCount += 1;
     account.withdrawCount += 1;
@@ -969,6 +1075,11 @@ function snapshotPosition(position: Position, event: ethereum.Event): void {
   snapshot.balance = position.balance;
   snapshot.blockNumber = event.block.number;
   snapshot.timestamp = event.block.timestamp;
+  snapshot.supplyPrincipal = position.supplyPrincipal;
+  snapshot.variableDebtPrincipal = position.variableDebtPrincipal;
+  snapshot.stableDebtPrincipal = position.stableDebtPrincipal;
+  snapshot.blockNumberUpdated = position.blockNumberUpdated;
+  snapshot.timestampUpdated = position.timestampUpdated;
   snapshot.save();
 }
 
@@ -1046,9 +1157,11 @@ export function getOrCreateMarket(
 export function getBorrowBalance(
   market: Market,
   account: Address
-): ethereum.CallResult<BigInt> {
+): BorrowBalances {
   let sDebtTokenBalance = BIGINT_ZERO;
   let vDebtTokenBalance = BIGINT_ZERO;
+  let variableDebtPrincipal: ethereum.CallResult<BigInt> | null = null;
+  let stableDebtPrincipal: ethereum.CallResult<BigInt> | null = null;
 
   // get account's balance of variable debt
   if (market._vToken) {
@@ -1057,18 +1170,26 @@ export function getBorrowBalance(
     vDebtTokenBalance = tryVDebtTokenBalance.reverted
       ? BIGINT_ZERO
       : tryVDebtTokenBalance.value;
+
+    variableDebtPrincipal = vTokenContract.try_scaledBalanceOf(account);
   }
 
   // get account's balance of stable debt
   if (market._sToken) {
-    const sTokenContract = AToken.bind(Address.fromString(market._sToken!));
+    const sTokenContract = StableDebtToken.bind(
+      Address.fromString(market._sToken!)
+    );
     const trySDebtTokenBalance = sTokenContract.try_balanceOf(account);
     sDebtTokenBalance = trySDebtTokenBalance.reverted
       ? BIGINT_ZERO
       : trySDebtTokenBalance.value;
+
+    stableDebtPrincipal = sTokenContract.try_principalBalanceOf(account);
   }
 
   const totalDebt = sDebtTokenBalance.plus(vDebtTokenBalance);
-
-  return ethereum.CallResult.fromValue(totalDebt);
+  return new BorrowBalances(
+    ethereum.CallResult.fromValue(totalDebt),
+    new PrincipalBalances(null, variableDebtPrincipal, stableDebtPrincipal)
+  );
 }

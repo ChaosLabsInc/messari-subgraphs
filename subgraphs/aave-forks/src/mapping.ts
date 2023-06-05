@@ -37,6 +37,7 @@ import {
   ZERO_ADDRESS,
 } from "./constants";
 import {
+  PrincipalBalances,
   addPosition,
   createAccount,
   createInterestRate,
@@ -56,7 +57,6 @@ import {
   VariableDebtToken as VTokenTemplate,
   StableDebtToken as STokenTemplate,
 } from "../generated/templates";
-import { ERC20 } from "../generated/LendingPool/ERC20";
 
 //////////////////////////
 ///// Helper Classes /////
@@ -556,6 +556,11 @@ export function _handleDeposit(
     market,
     account,
     aTokenContract.try_balanceOf(accountID), // try getting balance of account
+    new PrincipalBalances(
+      aTokenContract.try_scaledBalanceOf(accountID), // try getting the principal balance of account
+      null,
+      null
+    ),
     PositionSide.LENDER,
     EventType.DEPOSIT,
     event
@@ -647,6 +652,11 @@ export function _handleWithdraw(
     market,
     account,
     aTokenContract.try_balanceOf(accountID), // try getting balance of account
+    new PrincipalBalances(
+      aTokenContract.try_scaledBalanceOf(accountID), // try getting principal balance of account
+      null,
+      null
+    ),
     PositionSide.LENDER,
     EventType.WITHDRAW,
     event
@@ -729,12 +739,16 @@ export function _handleBorrow(
   account.borrowCount += 1;
   account.save();
 
+  // try getting balance of account in debt market
+  const borrowBalances = getBorrowBalance(market, accountID);
+
   // update position
   const positionId = addPosition(
     protocol,
     market,
     account,
-    getBorrowBalance(market, accountID), // try getting balance of account in debt market
+    borrowBalances.balance,
+    borrowBalances.borrowPrincipalBalances,
     PositionSide.BORROWER,
     EventType.BORROW,
     event
@@ -820,11 +834,15 @@ export function _handleRepay(
   account.repayCount += 1;
   account.save();
 
+  // try getting balance of account in debt market
+  const borrowBalances = getBorrowBalance(market, accountID);
+
   const positionId = subtractPosition(
     protocol,
     market,
     account,
-    getBorrowBalance(market, accountID), // try getting balance of account in debt market
+    borrowBalances.balance,
+    borrowBalances.borrowPrincipalBalances,
     PositionSide.BORROWER,
     EventType.REPAY,
     event
@@ -952,12 +970,16 @@ export function _handleLiquidate(
     return;
   }
 
+  // try getting balance of account in debt market
+  const borrowBalances = getBorrowBalance(repayTokenMarket, borrower);
+
   // account for borrow being repaid by liquidator
   const positionId = subtractPosition(
     protocol,
     repayTokenMarket,
     account, // the borrower
-    getBorrowBalance(repayTokenMarket, borrower), // try getting balance of account in debt market
+    borrowBalances.balance,
+    borrowBalances.borrowPrincipalBalances,
     PositionSide.BORROWER,
     EventType.LIQUIDATEE,
     event
@@ -977,6 +999,11 @@ export function _handleLiquidate(
     market, // collateral market
     account,
     aTokenContract.try_balanceOf(borrower),
+    new PrincipalBalances(
+      aTokenContract.try_scaledBalanceOf(borrower),
+      null,
+      null
+    ),
     PositionSide.LENDER,
     -1, // not incrementing to not double count
     event
@@ -988,6 +1015,11 @@ export function _handleLiquidate(
     market, // collateral market
     liquidatorAccount,
     aTokenContract.try_balanceOf(liquidator),
+    new PrincipalBalances(
+      aTokenContract.try_scaledBalanceOf(liquidator),
+      null,
+      null
+    ),
     PositionSide.LENDER,
     -1, // TODO: how do we classify a liquidator gaining collateral
     event
@@ -1116,7 +1148,54 @@ export function _handleTransfer(
     protocol.save();
   }
 
-  const tokenContract = ERC20.bind(asset);
+  let balanceFrom: ethereum.CallResult<BigInt> | null = null,
+    balanceTo: ethereum.CallResult<BigInt> | null = null,
+    fromPrincipal: PrincipalBalances | null = null,
+    toPrincipal: PrincipalBalances | null = null;
+
+  if (market.outputToken && Address.fromString(market.outputToken!) === asset) {
+    const tokenContract = AToken.bind(asset);
+    balanceFrom = tokenContract.try_balanceOf(from);
+    balanceTo = tokenContract.try_balanceOf(to);
+    fromPrincipal = new PrincipalBalances(
+      tokenContract.try_scaledBalanceOf(from),
+      null,
+      null
+    );
+    toPrincipal = new PrincipalBalances(
+      tokenContract.try_scaledBalanceOf(to),
+      null,
+      null
+    );
+  } else if (market._vToken && Address.fromString(market._vToken!) === asset) {
+    const tokenContract = VariableDebtToken.bind(asset);
+    balanceFrom = tokenContract.try_balanceOf(from);
+    balanceTo = tokenContract.try_balanceOf(to);
+    fromPrincipal = new PrincipalBalances(
+      null,
+      tokenContract.try_scaledBalanceOf(from),
+      null
+    );
+    toPrincipal = new PrincipalBalances(
+      null,
+      tokenContract.try_scaledBalanceOf(to),
+      null
+    );
+  } else {
+    const tokenContract = StableDebtToken.bind(asset);
+    balanceFrom = tokenContract.try_balanceOf(from);
+    balanceTo = tokenContract.try_balanceOf(to);
+    fromPrincipal = new PrincipalBalances(
+      null,
+      null,
+      tokenContract.try_principalBalanceOf(from)
+    );
+    toPrincipal = new PrincipalBalances(
+      null,
+      null,
+      tokenContract.try_principalBalanceOf(to)
+    );
+  }
 
   // update balance from sender
   if (fromAccount) {
@@ -1124,7 +1203,8 @@ export function _handleTransfer(
       protocol,
       market,
       fromAccount,
-      tokenContract.try_balanceOf(from),
+      balanceFrom,
+      fromPrincipal,
       positionSide,
       -1, // TODO: not sure how to classify this event yet
       event
@@ -1137,7 +1217,8 @@ export function _handleTransfer(
       protocol,
       market,
       toAccount,
-      tokenContract.try_balanceOf(to),
+      balanceTo,
+      toPrincipal,
       positionSide,
       -1, // TODO: not sure how to classify this event yet
       event
