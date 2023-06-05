@@ -657,7 +657,8 @@ export function addPosition(
       [account.id, market.id]
     );
   } else if (principalBalances.variableDebtPrincipal) {
-    position.supplyPrincipal = principalBalances.variableDebtPrincipal!.value;
+    position.variableDebtPrincipal =
+      principalBalances.variableDebtPrincipal!.value;
   }
 
   if (
@@ -669,7 +670,7 @@ export function addPosition(
       [account.id, market.id]
     );
   } else if (principalBalances.stableDebtPrincipal) {
-    position.supplyPrincipal = principalBalances.stableDebtPrincipal!.value;
+    position.stableDebtPrincipal = principalBalances.stableDebtPrincipal!.value;
   }
 
   if (eventType == EventType.DEPOSIT) {
@@ -798,7 +799,8 @@ export function subtractPosition(
       [account.id, market.id]
     );
   } else if (principalBalances.variableDebtPrincipal) {
-    position.supplyPrincipal = principalBalances.variableDebtPrincipal!.value;
+    position.variableDebtPrincipal =
+      principalBalances.variableDebtPrincipal!.value;
   }
 
   if (
@@ -810,7 +812,7 @@ export function subtractPosition(
       [account.id, market.id]
     );
   } else if (principalBalances.stableDebtPrincipal) {
-    position.supplyPrincipal = principalBalances.stableDebtPrincipal!.value;
+    position.stableDebtPrincipal = principalBalances.stableDebtPrincipal!.value;
   }
 
   if (eventType == EventType.WITHDRAW) {
