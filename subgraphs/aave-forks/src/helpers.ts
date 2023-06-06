@@ -59,9 +59,9 @@ import { StableDebtToken } from "../generated/LendingPool/StableDebtToken";
 
 export class PrincipalBalances {
   constructor(
-    public readonly supplyPrincipal: ethereum.CallResult<BigInt> | null,
-    public readonly variableDebtPrincipal: ethereum.CallResult<BigInt> | null,
-    public readonly stableDebtPrincipal: ethereum.CallResult<BigInt> | null
+    public readonly principal: ethereum.CallResult<BigInt> | null,
+    public readonly _variablePrincipal: ethereum.CallResult<BigInt> | null,
+    public readonly _stablePrincipal: ethereum.CallResult<BigInt> | null
   ) {}
 }
 
@@ -613,9 +613,9 @@ export function addPosition(
         account._enabledCollaterals.indexOf(market.id) >= 0;
     }
     position.balance = BIGINT_ZERO;
-    position.supplyPrincipal = BIGINT_ZERO;
-    position.variableDebtPrincipal = BIGINT_ZERO;
-    position.stableDebtPrincipal = BIGINT_ZERO;
+    position.principal = BIGINT_ZERO;
+    position._variablePrincipal = BIGINT_ZERO;
+    position._stablePrincipal = BIGINT_ZERO;
     position.depositCount = 0;
     position.withdrawCount = 0;
     position.borrowCount = 0;
@@ -636,41 +636,37 @@ export function addPosition(
     position.balance = balanceResult.value;
   }
 
-  if (
-    principalBalances.supplyPrincipal &&
-    principalBalances.supplyPrincipal!.reverted
-  ) {
+  if (principalBalances.principal && principalBalances.principal!.reverted) {
     log.warning(
       "[addPosition] Fetch supply principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.supplyPrincipal) {
-    position.supplyPrincipal = principalBalances.supplyPrincipal!.value;
+  } else if (principalBalances.principal) {
+    position.principal = principalBalances.principal!.value;
   }
 
   if (
-    principalBalances.variableDebtPrincipal &&
-    principalBalances.variableDebtPrincipal!.reverted
+    principalBalances._variablePrincipal &&
+    principalBalances._variablePrincipal!.reverted
   ) {
     log.warning(
       "[addPosition] Fetch variable debt principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.variableDebtPrincipal) {
-    position.variableDebtPrincipal =
-      principalBalances.variableDebtPrincipal!.value;
+  } else if (principalBalances._variablePrincipal) {
+    position._variablePrincipal = principalBalances._variablePrincipal!.value;
   }
 
   if (
-    principalBalances.stableDebtPrincipal &&
-    principalBalances.stableDebtPrincipal!.reverted
+    principalBalances._stablePrincipal &&
+    principalBalances._stablePrincipal!.reverted
   ) {
     log.warning(
       "[addPosition] Fetch stable debt principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.stableDebtPrincipal) {
-    position.stableDebtPrincipal = principalBalances.stableDebtPrincipal!.value;
+  } else if (principalBalances._stablePrincipal) {
+    position._stablePrincipal = principalBalances._stablePrincipal!.value;
   }
 
   if (eventType == EventType.DEPOSIT) {
@@ -778,41 +774,37 @@ export function subtractPosition(
   } else {
     position.balance = balanceResult.value;
   }
-  if (
-    principalBalances.supplyPrincipal &&
-    principalBalances.supplyPrincipal!.reverted
-  ) {
+  if (principalBalances.principal && principalBalances.principal!.reverted) {
     log.warning(
       "[addPosition] Fetch supply principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.supplyPrincipal) {
-    position.supplyPrincipal = principalBalances.supplyPrincipal!.value;
+  } else if (principalBalances.principal) {
+    position.principal = principalBalances.principal!.value;
   }
 
   if (
-    principalBalances.variableDebtPrincipal &&
-    principalBalances.variableDebtPrincipal!.reverted
+    principalBalances._variablePrincipal &&
+    principalBalances._variablePrincipal!.reverted
   ) {
     log.warning(
       "[addPosition] Fetch variable debt principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.variableDebtPrincipal) {
-    position.variableDebtPrincipal =
-      principalBalances.variableDebtPrincipal!.value;
+  } else if (principalBalances._variablePrincipal) {
+    position._variablePrincipal = principalBalances._variablePrincipal!.value;
   }
 
   if (
-    principalBalances.stableDebtPrincipal &&
-    principalBalances.stableDebtPrincipal!.reverted
+    principalBalances._stablePrincipal &&
+    principalBalances._stablePrincipal!.reverted
   ) {
     log.warning(
       "[addPosition] Fetch stable debt principal balance of {} from {} reverted",
       [account.id, market.id]
     );
-  } else if (principalBalances.stableDebtPrincipal) {
-    position.stableDebtPrincipal = principalBalances.stableDebtPrincipal!.value;
+  } else if (principalBalances._stablePrincipal) {
+    position._stablePrincipal = principalBalances._stablePrincipal!.value;
   }
 
   if (eventType == EventType.WITHDRAW) {
@@ -1077,9 +1069,9 @@ function snapshotPosition(position: Position, event: ethereum.Event): void {
   snapshot.balance = position.balance;
   snapshot.blockNumber = event.block.number;
   snapshot.timestamp = event.block.timestamp;
-  snapshot.supplyPrincipal = position.supplyPrincipal;
-  snapshot.variableDebtPrincipal = position.variableDebtPrincipal;
-  snapshot.stableDebtPrincipal = position.stableDebtPrincipal;
+  snapshot.principal = position.principal;
+  snapshot._variablePrincipal = position._variablePrincipal;
+  snapshot._stablePrincipal = position._stablePrincipal;
   snapshot.blockNumberUpdated = position.blockNumberUpdated;
   snapshot.timestampUpdated = position.timestampUpdated;
   snapshot.save();
@@ -1162,8 +1154,8 @@ export function getBorrowBalance(
 ): BorrowBalances {
   let sDebtTokenBalance = BIGINT_ZERO;
   let vDebtTokenBalance = BIGINT_ZERO;
-  let variableDebtPrincipal: ethereum.CallResult<BigInt> | null = null;
-  let stableDebtPrincipal: ethereum.CallResult<BigInt> | null = null;
+  let _variablePrincipal: ethereum.CallResult<BigInt> | null = null;
+  let _stablePrincipal: ethereum.CallResult<BigInt> | null = null;
 
   // get account's balance of variable debt
   if (market._vToken) {
@@ -1173,7 +1165,7 @@ export function getBorrowBalance(
       ? BIGINT_ZERO
       : tryVDebtTokenBalance.value;
 
-    variableDebtPrincipal = vTokenContract.try_scaledBalanceOf(account);
+    _variablePrincipal = vTokenContract.try_scaledBalanceOf(account);
   }
 
   // get account's balance of stable debt
@@ -1186,12 +1178,12 @@ export function getBorrowBalance(
       ? BIGINT_ZERO
       : trySDebtTokenBalance.value;
 
-    stableDebtPrincipal = sTokenContract.try_principalBalanceOf(account);
+    _stablePrincipal = sTokenContract.try_principalBalanceOf(account);
   }
 
   const totalDebt = sDebtTokenBalance.plus(vDebtTokenBalance);
   return new BorrowBalances(
     ethereum.CallResult.fromValue(totalDebt),
-    new PrincipalBalances(null, variableDebtPrincipal, stableDebtPrincipal)
+    new PrincipalBalances(null, _variablePrincipal, _stablePrincipal)
   );
 }

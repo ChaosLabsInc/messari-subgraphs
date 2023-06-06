@@ -993,13 +993,13 @@ type Position @entity @regularPolling {
   balance: BigInt!
 
   " The scaled token supply of the position (Used to calculate interest generated on a position) "
-  supplyPrincipal: BigInt
+  principal: BigInt
 
   " The scaled variable debt of this position (Used to calculate interest generated on a position) "
-  variableDebtPrincipal: BigInt
+  _variablePrincipal: BigInt
 
   " The scaled stable debt of this position (Used to calculate interest generated on a position) "
-  stableDebtPrincipal: BigInt
+  _stablePrincipal: BigInt
 
   " Number of deposits related to this position "
   depositCount: Int!
@@ -1069,13 +1069,13 @@ type PositionSnapshot @entity @regularPolling {
   ##### Interest Tracking Fields #####
 
   " The scaled token supply of the position (Used to calculate interest generated on a position) "
-  supplyPrincipal: BigInt
+  principal: BigInt
 
   " The scaled variable debt of this position (Used to calculate interest generated on a position) "
-  variableDebtPrincipal: BigInt
+  _variablePrincipal: BigInt
 
   " The scaled stable debt of this position (Used to calculate interest generated on a position) "
-  stableDebtPrincipal: BigInt
+  _stablePrincipal: BigInt
 
   " Block number of when the position was updated "
   blockNumberUpdated: BigInt
