@@ -1153,7 +1153,7 @@ export function _handleTransfer(
     fromPrincipal: PrincipalBalances | null = null,
     toPrincipal: PrincipalBalances | null = null;
 
-  if (market.outputToken && Address.fromString(market.outputToken!) === asset) {
+  if (market.outputToken && Address.fromString(market.outputToken!) == asset) {
     const tokenContract = AToken.bind(asset);
     balanceFrom = tokenContract.try_balanceOf(from);
     balanceTo = tokenContract.try_balanceOf(to);
@@ -1167,7 +1167,7 @@ export function _handleTransfer(
       null,
       null
     );
-  } else if (market._vToken && Address.fromString(market._vToken!) === asset) {
+  } else if (market._vToken && Address.fromString(market._vToken!) == asset) {
     const tokenContract = VariableDebtToken.bind(asset);
     balanceFrom = tokenContract.try_balanceOf(from);
     balanceTo = tokenContract.try_balanceOf(to);
