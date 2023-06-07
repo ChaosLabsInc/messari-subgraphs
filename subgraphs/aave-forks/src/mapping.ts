@@ -106,6 +106,7 @@ export function _handleReserveInitialized(
   market.outputToken = outputTokenEntity.id;
   market.createdBlockNumber = event.block.number;
   market.createdTimestamp = event.block.timestamp;
+  market.lastUpdatedTimestamp = event.block.timestamp;
   market._vToken = variableDebtTokenEntity.id;
   VTokenTemplate.create(variableDebtToken);
   if (stableDebtToken != Address.fromString(ZERO_ADDRESS)) {
@@ -426,6 +427,7 @@ export function _handleReserveDataUpdated(
   const supplySideRevenueDeltaUSD = totalRevenueDeltaUSD.minus(
     protocolSideRevenueDeltaUSD
   );
+  market.lastUpdatedTimestamp = event.block.timestamp;
 
   market.cumulativeTotalRevenueUSD =
     market.cumulativeTotalRevenueUSD.plus(totalRevenueDeltaUSD);

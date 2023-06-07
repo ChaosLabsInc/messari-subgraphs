@@ -625,6 +625,9 @@ type Market @entity @regularPolling {
   " Creation block number "
   createdBlockNumber: BigInt!
 
+  " Last updated timestamp "
+  lastUpdatedTimestamp: BigInt!
+
   ##### Account/Position Data #####
 
   " All positions in this market "

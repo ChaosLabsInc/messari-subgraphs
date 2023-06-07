@@ -1132,6 +1132,7 @@ export function getOrCreateMarket(
     // these are set in reserveInitialized()
     market.createdTimestamp = BIGINT_ZERO;
     market.createdBlockNumber = BIGINT_ZERO;
+    market.lastUpdatedTimestamp = BIGINT_ZERO;
     market.positionCount = INT_ZERO;
     market.openPositionCount = INT_ZERO;
     market.closedPositionCount = INT_ZERO;
