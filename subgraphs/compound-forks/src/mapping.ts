@@ -106,6 +106,13 @@ export class UpdateMarketData {
   ) {}
 }
 
+export class BalanceResults {
+  constructor(
+    public readonly balance: ethereum.CallResult<BigInt>,
+    public readonly principalBalances: ethereum.CallResult<BigInt> | null
+  ) {}
+}
+
 ////////////////////////////////////
 //// Comptroller Event Handlers ////
 ////////////////////////////////////
@@ -348,6 +355,7 @@ export function _handleMarketListed(
   market.lendingPositionCount = 0;
   market.borrowingPositionCount = 0;
   market._borrowBalance = BIGINT_ZERO;
+  market._borrowIndex = BIGINT_ZERO;
 
   market.save();
 
@@ -371,7 +379,8 @@ export function _handleMint(
   mintAmount: BigInt,
   outputTokenSupplyResult: ethereum.CallResult<BigInt>,
   underlyingBalanceResult: ethereum.CallResult<BigInt>,
-  event: ethereum.Event
+  event: ethereum.Event,
+  principalBalanceResult: ethereum.CallResult<BigInt> | null = null
 ): void {
   const protocol = LendingProtocol.load(comptrollerAddr.toHexString());
   if (!protocol) {
@@ -428,7 +437,7 @@ export function _handleMint(
     protocol,
     market,
     account,
-    underlyingBalanceResult,
+    new BalanceResults(underlyingBalanceResult, principalBalanceResult),
     PositionSide.LENDER,
     EventType.Deposit,
     event
@@ -494,7 +503,8 @@ export function _handleRedeem(
   redeemAmount: BigInt,
   outputTokenSupplyResult: ethereum.CallResult<BigInt>,
   underlyingBalanceResult: ethereum.CallResult<BigInt>,
-  event: ethereum.Event
+  event: ethereum.Event,
+  principalBalanceResult: ethereum.CallResult<BigInt> | null = null
 ): void {
   const protocol = LendingProtocol.load(comptrollerAddr.toHexString());
   if (!protocol) {
@@ -535,7 +545,7 @@ export function _handleRedeem(
     protocol,
     market,
     account,
-    underlyingBalanceResult,
+    new BalanceResults(underlyingBalanceResult, principalBalanceResult),
     PositionSide.LENDER,
     EventType.Withdraw,
     event
@@ -658,7 +668,7 @@ export function _handleBorrow(
     protocol,
     market,
     account,
-    borrowBalanceResult,
+    new BalanceResults(borrowBalanceResult, null),
     PositionSide.BORROWER,
     EventType.Borrow,
     event
@@ -780,7 +790,7 @@ export function _handleRepayBorrow(
     protocol,
     market,
     borrowerAccount,
-    borrowBalanceResult,
+    new BalanceResults(borrowBalanceResult, null),
     PositionSide.BORROWER,
     EventType.Repay,
     event
@@ -1053,7 +1063,8 @@ export function _handleAccrueInterest(
   interestAccumulated: BigInt,
   totalBorrows: BigInt,
   updateMarketPrices: boolean,
-  event: ethereum.Event
+  event: ethereum.Event,
+  borrowIndex: BigInt | null = null
 ): void {
   const marketID = event.address.toHexString();
   const market = Market.load(marketID);
@@ -1070,7 +1081,8 @@ export function _handleAccrueInterest(
     event.block.number,
     event.block.timestamp,
     updateMarketPrices,
-    comptrollerAddr
+    comptrollerAddr,
+    borrowIndex
   );
 
   updateProtocol(comptrollerAddr);
@@ -1164,7 +1176,10 @@ export function _handleTransfer(
       protocol,
       market,
       fromAccount,
-      cTokenContract.try_balanceOfUnderlying(from),
+      new BalanceResults(
+        cTokenContract.try_balanceOfUnderlying(from),
+        cTokenContract.try_balanceOf(from)
+      ),
       PositionSide.LENDER,
       -1, // TODO: not sure how to classify this event yet
       event
@@ -1177,7 +1192,10 @@ export function _handleTransfer(
       protocol,
       market,
       toAccount,
-      cTokenContract.try_balanceOfUnderlying(to),
+      new BalanceResults(
+        cTokenContract.try_balanceOfUnderlying(to),
+        cTokenContract.try_balanceOf(to)
+      ),
       PositionSide.LENDER,
       -1, // TODO: not sure how to classify this event yet
       event
@@ -1548,7 +1566,8 @@ export function updateMarket(
   blockNumber: BigInt,
   blockTimestamp: BigInt,
   updateMarketPrices: boolean,
-  comptrollerAddress: Address
+  comptrollerAddress: Address,
+  borrowIndex: BigInt | null = null
 ): void {
   const market = Market.load(marketID);
   if (!market) {
@@ -1609,6 +1628,7 @@ export function updateMarket(
           )
         );
     market.exchangeRate = oneCTokenInUnderlying;
+    if (borrowIndex) market._borrowIndex = borrowIndex;
     market.outputTokenPriceUSD = oneCTokenInUnderlying.times(
       underlyingTokenPriceUSD
     );
@@ -1660,6 +1680,7 @@ export function updateMarket(
     market.cumulativeProtocolSideRevenueUSD.plus(protocolSideRevenueUSDDelta);
   market.cumulativeSupplySideRevenueUSD =
     market.cumulativeSupplySideRevenueUSD.plus(supplySideRevenueUSDDelta);
+
   market.save();
 
   // update daily fields in marketDailySnapshot
@@ -2109,7 +2130,7 @@ function addPosition(
   protocol: LendingProtocol,
   market: Market,
   account: Account,
-  balanceResult: ethereum.CallResult<BigInt>,
+  balanceResults: BalanceResults,
   side: string,
   eventType: EventType,
   event: ethereum.Event
@@ -2144,27 +2165,42 @@ function addPosition(
         account._enabledCollaterals.indexOf(market.id) >= 0;
     }
     position.balance = BIGINT_ZERO;
+    position.principal = BIGINT_ZERO;
     position.depositCount = 0;
     position.withdrawCount = 0;
     position.borrowCount = 0;
     position.repayCount = 0;
     position.liquidationCount = 0;
+    position._interestIndex = BIGINT_ZERO;
     position.save();
   }
   position = position!;
-  if (balanceResult.reverted) {
+  if (balanceResults.balance.reverted) {
     log.warning("[addPosition] Fetch balance of {} from {} reverted", [
       account.id,
       market.id,
     ]);
   } else {
-    position.balance = balanceResult.value;
+    position.balance = balanceResults.balance.value;
   }
+  if (
+    balanceResults.principalBalances &&
+    balanceResults.principalBalances!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (balanceResults.principalBalances) {
+    position.principal = balanceResults.principalBalances!.value;
+  }
+
   if (eventType == EventType.Deposit) {
     position.depositCount += 1;
   } else if (eventType == EventType.Borrow) {
     position.borrowCount += 1;
   }
+  position._interestIndex = market._borrowIndex;
   position.save();
 
   if (openPosition) {
@@ -2213,7 +2249,7 @@ function subtractPosition(
   protocol: LendingProtocol,
   market: Market,
   account: Account,
-  balanceResult: ethereum.CallResult<BigInt>,
+  balanceResults: BalanceResults,
   side: string,
   eventType: EventType,
   event: ethereum.Event
@@ -2239,19 +2275,33 @@ function subtractPosition(
     return null;
   }
 
-  if (balanceResult.reverted) {
+  if (balanceResults.balance.reverted) {
     log.warning("[subtractPosition] Fetch balance of {} from {} reverted", [
       account.id,
       market.id,
     ]);
   } else {
-    position.balance = balanceResult.value;
+    position.balance = balanceResults.balance.value;
   }
+
+  if (
+    balanceResults.principalBalances &&
+    balanceResults.principalBalances!.reverted
+  ) {
+    log.warning(
+      "[addPosition] Fetch principal balance of {} from {} reverted",
+      [account.id, market.id]
+    );
+  } else if (balanceResults.principalBalances) {
+    position.principal = balanceResults.principalBalances!.value;
+  }
+
   if (eventType == EventType.Withdraw) {
     position.withdrawCount += 1;
   } else if (eventType == EventType.Repay) {
     position.repayCount += 1;
   }
+  position._interestIndex = market._borrowIndex;
   position.save();
 
   const closePosition = position.balance == BIGINT_ZERO;

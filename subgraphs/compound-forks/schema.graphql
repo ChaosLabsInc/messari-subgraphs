@@ -662,6 +662,8 @@ type Market @entity @regularPolling {
 
   _reserveFactor: BigDecimal!
 
+  _borrowIndex: BigInt!
+
   " The amount of borrowed asset in underlying "
   _borrowBalance: BigInt!
 
@@ -970,6 +972,8 @@ type Position @entity @regularPolling {
   " Token balance in this position, in native amounts "
   balance: BigInt!
 
+  principal: BigInt!
+
   " Number of deposits related to this position "
   depositCount: Int!
 
@@ -1002,6 +1006,10 @@ type Position @entity @regularPolling {
 
   " Position daily snapshots for open positions "
   snapshots: [PositionSnapshot!]! @derivedFrom(field: "position")
+
+  ### Add-Ons ###
+
+  _interestIndex: BigInt!
 }
 
 # Unlike other snapshots that are taken at a fixed time interval. Position

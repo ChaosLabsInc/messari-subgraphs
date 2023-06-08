@@ -219,13 +219,16 @@ export function handleMint(event: Mint): void {
   const balanceOfUnderlyingResult = contract.try_balanceOfUnderlying(
     event.params.minter
   );
+  const principalBalanceResult = contract.try_balanceOf(event.params.minter);
+
   _handleMint(
     comptrollerAddr,
     minter,
     mintAmount,
     outputTokenSupplyResult,
     balanceOfUnderlyingResult,
-    event
+    event,
+    principalBalanceResult
   );
 }
 
@@ -237,13 +240,16 @@ export function handleRedeem(event: Redeem): void {
   const balanceOfUnderlyingResult = contract.try_balanceOfUnderlying(
     event.params.redeemer
   );
+  const principalBalanceResult = contract.try_balanceOf(event.params.redeemer);
+
   _handleRedeem(
     comptrollerAddr,
     redeemer,
     redeemAmount,
     outputTokenSupplyResult,
     balanceOfUnderlyingResult,
-    event
+    event,
+    principalBalanceResult
   );
 }
 
@@ -336,13 +342,16 @@ export function handleAccrueInterest(event: AccrueInterest): void {
   );
   const interestAccumulated = event.params.interestAccumulated;
   const totalBorrows = event.params.totalBorrows;
+  const borrowIndex = event.params.borrowIndex;
+
   _handleAccrueInterest(
     updateMarketData,
     comptrollerAddr,
     interestAccumulated,
     totalBorrows,
     false, // do not update all prices
-    event
+    event,
+    borrowIndex
   );
 }
 
