@@ -5,7 +5,7 @@
     "address": "0x70e507f1d20AeC229F435cd1EcaC6A7200119B9F"
   },
   "lendingPoolConfigurator": {
-    "startBlock": "18466404",
+    "startBlock": "18466403",
     "address": "0x768D650675C436E457888A36Aea778F0c5CB0f53"
   },
   "lendingPool": {
