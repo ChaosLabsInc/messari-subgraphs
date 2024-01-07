@@ -29,6 +29,13 @@ export const BSC_REWARD_CONFIG = new RewardConfig(
   ZERO_ADDRESS // NO POOL
 );
 
+export const ETHEREUM_REWARD_CONFIG = new RewardConfig(
+  "0x137ddb47ee24eaa998a535ab00378d6bfa84f893", // RDNT token
+  "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // NO POOL
+  ZERO_ADDRESS, // NO POOL
+  ZERO_ADDRESS // NO POOL
+);
+
 export function getRewardConfig(): RewardConfig {
   const network = dataSource.network();
 
@@ -37,6 +44,9 @@ export function getRewardConfig(): RewardConfig {
   }
   if (equalsIgnoreCase(network, Network.BSC)) {
     return BSC_REWARD_CONFIG;
+  }
+  if (equalsIgnoreCase(network, Network.MAINNET)) {
+    return ETHEREUM_REWARD_CONFIG;
   }
 
   log.error("[getRewardConfig] Unsupported network {}", [network]);
@@ -82,6 +92,11 @@ export function getNetworkSpecificConstant(): NetworkSpecificConstant {
     return new NetworkSpecificConstant(
       "0x63764769da006395515c3f8aff9c91a809ef6607",
       Network.BSC
+    );
+  } else if (equalsIgnoreCase(network, Network.MAINNET)) {
+    return new NetworkSpecificConstant(
+      "0x70e507f1d20aec229f435cd1ecac6a7200119b9f",
+      Network.MAINNET
     );
   } else {
     log.critical("[getNetworkSpecificConstant] Unsupported network: {}", [
