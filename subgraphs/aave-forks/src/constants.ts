@@ -26,6 +26,7 @@ export namespace Network {
   export const OSMOSIS = "OSMOSIS";
   export const MATIC = "MATIC"; // aka Polygon
   export const XDAI = "XDAI"; // aka Gnosis Chain
+  export const BASE = "BASE";
 }
 
 export namespace ProtocolType {
@@ -120,7 +121,7 @@ export const SECONDS_PER_DAY = 60 * 60 * 24;
 
 export function readValue<T>(
   callResult: ethereum.CallResult<T>,
-  defaultValue: T
+  defaultValue: T,
 ): T {
   return callResult.reverted ? defaultValue : callResult.value;
 }

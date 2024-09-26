@@ -3494,6 +3494,28 @@
             "query-id": "radiant-capital-v2-ethereum"
           }
         }
+      },
+      "radiant-capital-v2-base": {
+        "network": "base",
+        "status": "prod",
+        "versions": {
+          "schema": "2.0.3",
+          "subgraph": "1.0.3",
+          "methodology": "1.0.1"
+        },
+        "files": {
+          "template": "radiant.capital.v2.template.yaml"
+        },
+        "options": {
+          "prepare:yaml": true,
+          "prepare:constants": false
+        },
+        "services": {
+          "decentralized-network": {
+            "slug": "radiant-capital-v2-base",
+            "query-id": "radiant-capital-v2-base"
+          }
+        }
       }
     }
   },
