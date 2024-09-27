@@ -1,19 +1,4 @@
 import { Address, log } from "@graphprotocol/graph-ts";
-import { PriceOracleUpdated } from "../../../generated/LendingPoolAddressesProvider/LendingPoolAddressesProvider";
-import {
-  getNetworkSpecificConstant,
-  Protocol,
-  rTOKEN_DECIMALS,
-} from "./constants";
-import {
-  BorrowingDisabledOnReserve,
-  BorrowingEnabledOnReserve,
-  CollateralConfigurationChanged,
-  ReserveActivated,
-  ReserveDeactivated,
-  ReserveFactorChanged,
-  ReserveInitialized,
-} from "../../../generated/LendingPoolConfigurator/LendingPoolConfigurator";
 import {
   Borrow,
   Deposit,
@@ -27,8 +12,25 @@ import {
   Withdraw,
 } from "../../../generated/LendingPool/LendingPool";
 import { RToken } from "../../../generated/LendingPool/RToken";
+import { PriceOracleUpdated } from "../../../generated/LendingPoolAddressesProvider/LendingPoolAddressesProvider";
 import {
-  ProtocolData,
+  BorrowingDisabledOnReserve,
+  BorrowingEnabledOnReserve,
+  CollateralConfigurationChanged,
+  ReserveActivated,
+  ReserveDeactivated,
+  ReserveFactorChanged,
+  ReserveInitialized,
+} from "../../../generated/LendingPoolConfigurator/LendingPoolConfigurator";
+import { Market } from "../../../generated/schema";
+import { Transfer as CollateralTransfer } from "../../../generated/templates/AToken/AToken";
+import { Transfer as VariableTransfer } from "../../../generated/templates/VariableDebtToken/VariableDebtToken";
+import {
+  BIGDECIMAL_ZERO,
+  exponentToBigDecimal,
+  PositionSide,
+} from "../../../src/constants";
+import {
   _handleBorrow,
   _handleBorrowingDisabledOnReserve,
   _handleBorrowingEnabledOnReserve,
@@ -48,16 +50,14 @@ import {
   _handleTransfer,
   _handleUnpaused,
   _handleWithdraw,
+  ProtocolData,
 } from "../../../src/mapping";
 import {
-  BIGDECIMAL_ZERO,
-  exponentToBigDecimal,
-  PositionSide,
-} from "../../../src/constants";
-import { Market } from "../../../generated/schema";
+  getNetworkSpecificConstant,
+  Protocol,
+  rTOKEN_DECIMALS,
+} from "./constants";
 import { updateMarketRewards } from "./rewards";
-import { Transfer as CollateralTransfer } from "../../../generated/templates/AToken/AToken";
-import { Transfer as VariableTransfer } from "../../../generated/templates/VariableDebtToken/VariableDebtToken";
 
 function getProtocolData(): ProtocolData {
   const networkSpecific = getNetworkSpecificConstant();
@@ -66,7 +66,7 @@ function getProtocolData(): ProtocolData {
     networkSpecific.protocolAddress,
     Protocol.NAME,
     Protocol.SLUG,
-    networkSpecific.network
+    networkSpecific.network,
   );
 }
 
@@ -91,31 +91,31 @@ export function handleReserveInitialized(event: ReserveInitialized): void {
     event.params.asset,
     event.params.aToken,
     event.params.variableDebtToken,
-    getProtocolData()
+    getProtocolData(),
     // No stable debt token in radiant
   );
 }
 
 export function handleCollateralConfigurationChanged(
-  event: CollateralConfigurationChanged
+  event: CollateralConfigurationChanged,
 ): void {
   _handleCollateralConfigurationChanged(
     event.params.asset,
     event.params.liquidationBonus,
     event.params.liquidationThreshold,
     event.params.ltv,
-    getProtocolData()
+    getProtocolData(),
   );
 }
 
 export function handleBorrowingEnabledOnReserve(
-  event: BorrowingEnabledOnReserve
+  event: BorrowingEnabledOnReserve,
 ): void {
   _handleBorrowingEnabledOnReserve(event.params.asset, getProtocolData());
 }
 
 export function handleBorrowingDisabledOnReserve(
-  event: BorrowingDisabledOnReserve
+  event: BorrowingDisabledOnReserve,
 ): void {
   _handleBorrowingDisabledOnReserve(event.params.asset, getProtocolData());
 }
@@ -132,7 +132,7 @@ export function handleReserveFactorChanged(event: ReserveFactorChanged): void {
   _handleReserveFactorChanged(
     event.params.asset,
     event.params.factor,
-    getProtocolData()
+    getProtocolData(),
   );
 }
 
@@ -161,13 +161,13 @@ export function handleReserveDataUpdated(event: ReserveDataUpdated): void {
   if (tryPrice.reverted) {
     log.error(
       "[handleReserveDataUpdated] Token price not found in Market: {}",
-      [market.id]
+      [market.id],
     );
+  } else {
+    assetPriceUSD = tryPrice.value
+      .toBigDecimal()
+      .div(exponentToBigDecimal(rTOKEN_DECIMALS));
   }
-
-  assetPriceUSD = tryPrice.value
-    .toBigDecimal()
-    .div(exponentToBigDecimal(rTOKEN_DECIMALS));
 
   _handleReserveDataUpdated(
     event,
@@ -178,29 +178,29 @@ export function handleReserveDataUpdated(event: ReserveDataUpdated): void {
     protocolData,
     event.params.reserve,
     assetPriceUSD,
-    event.params.variableBorrowIndex
+    event.params.variableBorrowIndex,
   );
 }
 
 export function handleReserveUsedAsCollateralEnabled(
-  event: ReserveUsedAsCollateralEnabled
+  event: ReserveUsedAsCollateralEnabled,
 ): void {
   // This Event handler enables a reserve/market to be used as collateral
   _handleReserveUsedAsCollateralEnabled(
     event.params.reserve,
     event.params.user,
-    getProtocolData()
+    getProtocolData(),
   );
 }
 
 export function handleReserveUsedAsCollateralDisabled(
-  event: ReserveUsedAsCollateralDisabled
+  event: ReserveUsedAsCollateralDisabled,
 ): void {
   // This Event handler disables a reserve/market being used as collateral
   _handleReserveUsedAsCollateralDisabled(
     event.params.reserve,
     event.params.user,
-    getProtocolData()
+    getProtocolData(),
   );
 }
 
@@ -220,7 +220,7 @@ export function handleDeposit(event: Deposit): void {
     event.params.amount,
     event.params.reserve,
     getProtocolData(),
-    event.params.onBehalfOf
+    event.params.onBehalfOf,
   );
 }
 
@@ -230,7 +230,7 @@ export function handleWithdraw(event: Withdraw): void {
     event.params.amount,
     event.params.reserve,
     getProtocolData(),
-    event.params.to
+    event.params.to,
   );
 }
 
@@ -240,7 +240,7 @@ export function handleBorrow(event: Borrow): void {
     event.params.amount,
     event.params.reserve,
     getProtocolData(),
-    event.params.onBehalfOf
+    event.params.onBehalfOf,
   );
 }
 
@@ -250,7 +250,7 @@ export function handleRepay(event: Repay): void {
     event.params.amount,
     event.params.reserve,
     getProtocolData(),
-    event.params.user // address that is getting debt reduced
+    event.params.user, // address that is getting debt reduced
   );
 }
 
@@ -263,7 +263,7 @@ export function handleLiquidationCall(event: LiquidationCall): void {
     event.params.liquidator,
     event.params.user,
     event.params.debtAsset,
-    event.params.debtToCover
+    event.params.debtToCover,
   );
 }
 
@@ -277,7 +277,7 @@ export function handleCollateralTransfer(event: CollateralTransfer): void {
     getProtocolData(),
     PositionSide.LENDER,
     event.params.to,
-    event.params.from
+    event.params.from,
   );
 }
 
@@ -287,6 +287,6 @@ export function handleVariableTransfer(event: VariableTransfer): void {
     getProtocolData(),
     PositionSide.BORROWER,
     event.params.to,
-    event.params.from
+    event.params.from,
   );
 }
